@@ -144,7 +144,13 @@ type RequestVoteReply struct {
 	Term			int
 	VoteGranted		bool
 }
+type AppendEntriesArgs struct {
+	
+}
 
+type AppendEntriesReply struct {
+	
+}
 //
 // example RequestVote RPC handler.
 //
@@ -169,6 +175,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.votedFor = args.CandidateId
 	}
 	
+}
+func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) {
+	// Your code here.
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.rcv_hbeat = true
 }
 
 //
@@ -230,6 +242,12 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 	}
 	return ok
 }
+func (rf *Raft) sendAppendEntries(server int,args AppendEntriesArgs, reply *AppendEntriesReply) bool {
+	ok := rf.peers[server].Call("Raft.AppendEntries",args,reply)
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return ok
+}
 //envio de pedido de voto para todos os pares
 func (rf *Raft) bcastRequestVote() {
 	var args RequestVoteArgs
@@ -237,12 +255,25 @@ func (rf *Raft) bcastRequestVote() {
 	args.Term = rf.currentTerm
 	args.CandidateId = rf.me
 	rf.mu.Unlock()
-
 	for i := range rf.peers {
 		if i != rf.me && rf.state == CANDIDATE {
 			go func(i int) {
 				var reply RequestVoteReply
 				rf.sendRequestVote(i, &args, &reply)
+			}(i)
+		}
+	}
+}
+func (rf *Raft) bcastAppendEntries() {
+	rf.mu.Lock()
+	
+	defer rf.mu.Unlock()
+	for i := range rf.peers {
+		if i != rf.me && rf.state == LEADER {
+			go func(i int) {
+				var reply AppendEntriesReply
+				var args AppendEntriesArgs
+				rf.sendAppendEntries(i,args,&reply)
 			}(i)
 		}
 	}
@@ -312,13 +343,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 				if time.Since(rf.internal_time) >= time.Duration(rand.Intn(200) + 300) * time.Millisecond {
 					fmt.Println("Tempo limite atingido para recepcao de heartbeats")
 					fmt.Printf("%d eh candidato\n",rf.me)
+					rf.mu.Lock()
 					rf.state = CANDIDATE
 					rf.internal_time=time.Now()
+					rf.mu.Unlock()
 				}else if rf.rcv_hbeat{
-					fmt.Println("Recebeu heartbeat")
+					rf.mu.Lock()
 					rf.internal_time=time.Now()
 					rf.rcv_hbeat=false
+					rf.mu.Unlock()
 				}
+			//(a) it wins the election, (b) another server establishes itself as leader, or (c) a period of time goes by with no winner.
 			case CANDIDATE:
 				rf.mu.Lock()
 				rf.currentTerm++
@@ -327,16 +362,25 @@ func Make(peers []*labrpc.ClientEnd, me int,
 				rf.mu.Unlock()
 				go rf.bcastRequestVote()
 				if time.Since(rf.internal_time) >= time.Duration(rand.Intn(150) + 150) * time.Millisecond {
-						fmt.Println("Tempo limite de eleicao atingido")
-						rf.state = FOLLOWER
-						rf.internal_time=time.Now()
+					fmt.Println("Tempo limite de eleicao atingido")
+					rf.mu.Lock()
+					rf.state = FOLLOWER
+					rf.internal_time=time.Now()
+					rf.mu.Unlock()
 				}else if rf.newleader{
 					fmt.Printf("%d eh lider\n",rf.me)
 					rf.mu.Lock()
 					rf.state = LEADER
 					rf.mu.Unlock()
+				}else if rf.rcv_hbeat{
+					rf.mu.Lock()
+					rf.state = FOLLOWER
+					rf.internal_time=time.Now()
+					rf.rcv_hbeat=false
+					rf.mu.Unlock()
 				}
 			case LEADER:
+				rf.bcastAppendEntries()
 			}
 		}
 	}()
