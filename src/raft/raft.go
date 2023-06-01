@@ -91,18 +91,30 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	//servidor destinatário tem term maior que remetente 
+
+
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
-	}else if args.Term > rf.currentTerm {//servidor destinatário tem term menor que remetente
+		return
+	}
+	if args.Term > rf.currentTerm {
 		rf.currentTerm = args.Term
 		rf.state = FOLLOWER
+		rf.votedFor = -1
+	}
+	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId){
+		rf.state = FOLLOWER
+
+
+		rf.votedFor = args.CandidateId
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = true
 		rf.votedFor = args.CandidateId
+	
 		rf.requestVoteReplied <- true
-	}else {//servidor destinatário tem term igual ao remetente
+	} else 
+	{
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
 	}
