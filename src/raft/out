@@ -1,0 +1,66 @@
+Test (2A): initial election ...
+Tempo limite atingido para recepcao de heartbeats
+Tempo limite atingido para recepcao de heartbeats
+1 eh candidato
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+0 eh candidato
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+Tempo limite atingido para recepcao de heartbeats
+0 eh candidato
+voto concedido
+novo lider
+Tempo limite de eleicao atingido
+Tempo limite de eleicao atingido
+Tempo limite de eleicao atingido
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+Tempo limite atingido para recepcao de heartbeats
+1 eh candidato
+1 eh lider
+voto concedido
+novo lider
+Tempo limite de eleicao atingido
+Tempo limite atingido para recepcao de heartbeats
+0 eh candidato
+voto concedido
+novo lider
+0 eh lider
+Tempo limite atingido para recepcao de heartbeats
+1 eh candidato
+1 eh lider
+--- FAIL: TestInitialElection2A (3.00s)
+    config.go:299: servers disagree on term
+Test (2A): election after network failure ...
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+2 eh lider
+Tempo limite atingido para recepcao de heartbeats
+1 eh candidato
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+voto concedido
+novo lider
+1 eh lider
+Tempo limite atingido para recepcao de heartbeats
+0 eh candidato
+voto concedido
+novo lider
+0 eh lider
+Tempo limite atingido para recepcao de heartbeats
+1 eh candidato
+1 eh lider
+Tempo limite atingido para recepcao de heartbeats
+2 eh candidato
+voto concedido
+novo lider
+Tempo limite atingido para recepcao de heartbeats
+0 eh candidato
+0 eh lider
+2 eh lider
+--- FAIL: TestReElection2A (4.05s)
+    config.go:312: expected no leader, but 2 claims to be leader
+FAIL
+exit status 1
+FAIL	raft	7.059s
