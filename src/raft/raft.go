@@ -119,7 +119,6 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 			fmt.Printf("%d deixou de ser %d\n", rf.me,rf.state)
 			rf.state= FOLLOWER
 			rf.votedFor = -1
-			rf.votes=0
 			return ok
 
 		}
@@ -241,7 +240,6 @@ func (rf *Raft) actionCandidate(){
 		case <-rf.winner:
 			rf.mu.Lock()
 			fmt.Printf("%d ganhou com %d votos\n", rf.me,rf.votes)
-			rf.votes=0
 			rf.state = LEADER
 			rf.mu.Unlock()
 		case <-rf.appendEntriesRec:
