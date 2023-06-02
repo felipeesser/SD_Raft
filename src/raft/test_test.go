@@ -60,7 +60,6 @@ func TestReElection2A(t *testing.T) {
 
 	// if there's no quorum, no leader should
 	// be elected.
-	fmt.Printf("teste quorum minimo\n")
 	cfg.disconnect(leader2)
 	cfg.disconnect((leader2 + 1) % servers)
 	time.Sleep(2 * RaftElectionTimeout)

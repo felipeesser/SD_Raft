@@ -12,7 +12,7 @@ import (
 const (
 	DefaultElectionTimeoutMin   = 250
 	DefaultElectionTimeoutRange = 150
-	DefaultHeartbeatInterval    = 50
+	DefaultHeartbeatInterval    = 44
 	DefaultChannelBufferSize    = 20
 )
 
@@ -63,10 +63,14 @@ type AppendEntriesArgs struct {
 }
 
 func (rf *Raft) GetState() (int, bool) {
-	var term int
-	var isleader bool= rf.state==LEADER
-	term= rf.currentTerm
-	return term, isleader
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.currentTerm, rf.state==LEADER
+}
+func (rf *Raft) GetRole() (int) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.state
 }
 
 // func (rf *Raft) persist() {
@@ -219,7 +223,9 @@ func (rf *Raft) actionFollower(){
 
 	select {
 	case <- time.After(time.Duration(electionTimeout) * time.Millisecond)://não recebeu heartbeats ou não votou em determinado intervalo
+		rf.mu.Lock()
 		rf.state = CANDIDATE
+		rf.mu.Unlock()	
 	case <-rf.requestVoteReplied://votou
 	case <-rf.appendEntriesRec://recebeu heartbeat
 	
@@ -251,7 +257,8 @@ func (rf *Raft) actionCandidate(){
 
 }
 func (rf *Raft) actionLeader(){
-	
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	for i := range rf.peers {
 		if i != rf.me {
 			var args AppendEntriesArgs
@@ -269,7 +276,8 @@ func (rf *Raft) actionLeader(){
 
 func (rf *Raft) doLoop() {
 	for {
-		switch rf.state {
+		state:=rf.GetRole()
+		switch state {
 		case FOLLOWER:
 			rf.actionFollower()
 		case CANDIDATE:
