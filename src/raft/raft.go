@@ -91,32 +91,36 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	// arg = remetente
+	// rf = destinatario
 
+	reply.VoteGranted = false
 
-	if args.Term < rf.currentTerm {
+	if args.Term < rf.currentTerm {		// se term remetente < destinatario, nao vota
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
 		return
 	}
-	if args.Term > rf.currentTerm {
-		rf.currentTerm = args.Term
-		rf.state = FOLLOWER
-		rf.votedFor = -1
-	}
-	if (rf.votedFor == -1 || rf.votedFor == args.CandidateId){
-		rf.state = FOLLOWER
-
-
+	if args.Term > rf.currentTerm {		// se term remetente > destinatario, 
+		rf.currentTerm = args.Term		// candidato - candidato	
+		rf.state = FOLLOWER				// candicato - follower			
+										// candidato - lider
+	
 		rf.votedFor = args.CandidateId
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = true
-		rf.votedFor = args.CandidateId
-	
+
 		rf.requestVoteReplied <- true
-	} else 
-	{
+
+	}else if rf.state != FOLLOWER{		// termos iguais e destinatario nao é um follower, entao destinatario nao vota
 		reply.Term = rf.currentTerm
 		reply.VoteGranted = false
+	}else if(rf.votedFor == -1 || rf.votedFor == args.CandidateId) {								// termos iguais e destinatario é um follower, entao destinatario vota
+		rf.votedFor = args.CandidateId
+		reply.Term = rf.currentTerm
+		reply.VoteGranted = true
+
+		rf.requestVoteReplied <- true
 	}
 	
 }
@@ -134,15 +138,15 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 			return ok
 
 		}
-		if rf.state == CANDIDATE {
-			if reply.VoteGranted {
-				rf.votes++
-				if rf.votes > (len(rf.peers) / 2){
-					rf.winner <- true
-				}
+		
+		if reply.VoteGranted {
+			rf.votes++
+			if rf.state == CANDIDATE && rf.votes > (len(rf.peers) / 2){
+				rf.winner <- true
 			}
+		}
 
-		} 
+		
 		return ok
 	}
 	return ok
@@ -166,6 +170,9 @@ func (rf *Raft) bcastRequestVote() {
 func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+
+	// RF - DESTINATARIO
+	// ARGS - REMETENTE
 	if args.Term < rf.currentTerm {
 		reply.Term = rf.currentTerm
 		reply.Success = false
@@ -182,7 +189,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 }
 
 
-func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {
+func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {	// rf = remetente   args = destinatario
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -228,24 +235,8 @@ func (rf *Raft) actionCandidate(){
 	rf.mu.Unlock()
 
 
-	go func() {
 
-		var args RequestVoteArgs
-
-		rf.mu.Lock()
-		args.Term = rf.currentTerm
-		args.CandidateId = rf.me
-		rf.mu.Unlock()
-
-		for i := range rf.peers {
-			if i != rf.me {
-				var reply RequestVoteReply
-				go rf.sendRequestVote(i, args, &reply)
-		
-			}
-		}
-	}()
-
+	go rf.bcastRequestVote()
 	electionTimeout := rand.Intn(DefaultElectionTimeoutRange) + DefaultElectionTimeoutMin
 	//(a) it wins the election, (b) another server establishes itself as leader, or (c) a period of time goes by with no winner.
 	select {
@@ -255,7 +246,6 @@ func (rf *Raft) actionCandidate(){
 			rf.state = LEADER
 			rf.mu.Unlock()
 		case <-rf.appendEntriesRec:
-			rf.state = FOLLOWER
 		case <- time.After(time.Duration(electionTimeout) * time.Millisecond):
 	}
 
@@ -303,7 +293,6 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan 
 	rf.requestVoteReplied = make(chan bool, DefaultChannelBufferSize)
 	rf.winner = make(chan bool, DefaultChannelBufferSize)
 
-	rf.commandApplied = applyCh
 
 
 
